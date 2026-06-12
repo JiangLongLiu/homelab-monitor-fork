@@ -1,0 +1,33 @@
+services:
+  homelab-monitor:
+    image: ${IMAGE_NAME:-sikamikaniko123/homelab-monitor:latest}
+    container_name: homelab-monitor
+    restart: unless-stopped
+    # host networking lets it reach any model server's API (Ollama/vLLM/TGI/...)
+    # and bind the dashboard directly on the host; pid:host maps GPU PIDs->containers.
+    network_mode: host
+    pid: host
+    # SYS_PTRACE lets us resolve /proc/<pid>/fd/* symlinks for processes we
+    # don't own, which is what powers the Services tab's Ports column.
+    cap_add:
+      - SYS_PTRACE
+    # Docker's default AppArmor profile denies ptrace access even when
+    # CAP_SYS_PTRACE is granted. Opting out lets the cap take effect.
+    security_opt:
+      - apparmor=unconfined
+    environment:
+      # GPU is auto-detected, never required.
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility
+      PORT: "${DASHBOARD_PORT:-9800}"
+      MCP_PORT: "${MCP_PORT:-9810}"
+      SAMPLE_INTERVAL: "${SAMPLE_INTERVAL:-10}"
+      RETENTION_DAYS: "${RETENTION_DAYS:-180}"
+      PRESSURE_FREE_MB: "${PRESSURE_FREE_MB:-2048}"
+      HOST_ROOT: "/rootfs"
+      DBUS_SYSTEM_BUS_ADDRESS: "unix:path=/run/dbus/system_bus_socket"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/rootfs:ro
+      - ./data:/data
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro
